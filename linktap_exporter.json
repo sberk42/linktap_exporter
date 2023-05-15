@@ -1,0 +1,28 @@
+{
+	"devices": {
+		"xxxxxxxxx" : { "name": "TP-2BS" }
+	},
+	"metrics": [
+		{ "id":"plan_mode", "type":"gauge", "help":"current activated watering plan mode (0: no plan, 1: instant, 2: calendar, 3 - 7: day, 4: odd-even, 5: interval mode, 6: month)" },
+		{ "id":"plan_sn", "type":"gauge", "help":"serial number of the currently executed watering plan" },
+		{ "id":"is_rf_linked", "type":"flag", "help":"connection status of the water timer with the gateway (1: connected)" },
+		{ "id":"is_flm_plugin", "type":"flag", "help":"connection status of the flow meter (1: connected)" },
+		{ "id":"is_fall", "type":"flag", "help":"water timer fall alert status (1: true)" },
+		{ "id":"is_broken", "type":"flag", "help":"valve shut-down failure alert status (1: true)" },
+		{ "id":"is_cutoff", "type":"flag", "help":"water cut-off alert status (1: true)" },
+		{ "id":"is_leak", "type":"flag", "help":"unusually high flow alert status (1: true)" },
+		{ "id":"is_clog", "type":"flag", "help":"unusually low flow alert status (1: true)" },
+		{ "id":"signal", "type":"gauge", "help":"water timer’s reception signal strength (%)"},
+		{ "id":"battery", "type":"gauge", "help":"water timer’s remaining battery (%)" },
+		{ "id":"child_lock", "type":"gauge", "help":"manual button lockout status (0: unlocked, 1: partially locked, 2: completely locked)" },
+		{ "id":"is_manual_mode", "type":"flag", "help":"is manual watering currently on (1: true)" },
+		{ "id":"is_watering", "type":"flag", "help":"is watering currently on (1: true)" },
+		{ "id":"is_final", "type":"flag", "help":"is last segment of ECO watering cycle (1: true) " },
+		{ "id":"total_duration", "type":"counter", "help":"total duration of current watering cycle in seconds" },
+		{ "id":"remain_duration", "type":"counter", "help":"remaining duration of current watering cycle in seconds" },
+		{ "id":"speed", "type":"gauge", "help":"current water flow rate (LPM or GPM)" },
+		{ "id":"volume", "type":"counter", "help":"accumulated volume of current watering cycle (Litre or Gallon)" },
+		{ "id":"volume_limit", "type":"gauge", "help":"volume limit" },
+		{ "id":"failsafe_duration", "type":"gauge", "help":"failsafe duration" }
+	]
+}
