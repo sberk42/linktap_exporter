@@ -9,6 +9,6 @@ jobs:
         uses: MajorScruffy/delete-old-workflow-runs@v0.2.0
         with:
           repository: ${{ github.repository }} 
-          older-than-seconds: 604800
+          older-than-seconds: 3600
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
