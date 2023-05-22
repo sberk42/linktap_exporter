@@ -5,12 +5,19 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"regexp"
 
 	log "github.com/sirupsen/logrus"
 )
 
-type DeviceConfig struct {
-	Name string `json:"name"`
+type DeviceLabelValueConfig struct {
+	Value         string `json:"value"`
+	IdRegexString string `json:"id_regex"`
+	IdRegex       *regexp.Regexp
+}
+type DeviceLabelConfig struct {
+	Label         string                    `json:"label"`
+	ValuePatterns []*DeviceLabelValueConfig `json:"value_patterns"`
 }
 
 type MetricConfig struct {
@@ -20,8 +27,8 @@ type MetricConfig struct {
 }
 
 type ExporterConfig struct {
-	Devices map[string]DeviceConfig `json:"devices"`
-	Metrics []MetricConfig          `json:"metrics"`
+	DeviceLabels []*DeviceLabelConfig `json:"device_labels"`
+	Metrics      []*MetricConfig      `json:"metrics"`
 }
 
 func ParseConfigJSON(cfgFile string) (*ExporterConfig, error) {
@@ -37,7 +44,19 @@ func ParseConfigJSON(cfgFile string) (*ExporterConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("CONFIG: read config: %v", config)
+
+	// compile value regex patterns
+	for _, dev_labels := range config.DeviceLabels {
+		for _, val_patterns := range dev_labels.ValuePatterns {
+			val_patterns.IdRegex = regexp.MustCompile(val_patterns.IdRegexString)
+		}
+	}
+
+	jsonOut, err := json.Marshal(config)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	log.Debugf("CONFIG: read config: %s", string(jsonOut))
 
 	return config, nil
 }

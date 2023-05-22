@@ -1,6 +1,6 @@
 module github.com/sberk42/linktap_exporter
 
-go 1.19
+go 1.20
 
 require (
 	github.com/prometheus/client_golang v1.15.1

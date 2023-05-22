@@ -42,6 +42,7 @@ import (
 */
 
 const query_gw_id = "{\"cmd\":3}"
+const query_gw_config = "{\"cmd\":16,\"gw_id\":\"%s\"}"
 const query_device_status = "{\"cmd\":3,\"gw_id\":\"%s\",\"dev_id\":\"%s\"}"
 
 type DeviceStatus struct {
@@ -52,10 +53,13 @@ type DeviceStatus struct {
 
 type GatewayHandler struct {
 	sync.RWMutex
-	gatewayURL string
-	gw_id      string
-	gw_unit    string
-	devices    map[string]*DeviceStatus
+	gatewayURL     string
+	gw_id          string
+	gw_unit        string
+	gw_version     string
+	gw_device_list []string
+	gw_msg_count   int64
+	devices        map[string]*DeviceStatus
 }
 
 func (gh *GatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +82,19 @@ func (gh *GatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	log.Debugf("Received Status: %v", ds)
 
-	err = gh.handleDeviceData(ds)
+	cmd, ok := ds["cmd"].(float64)
+	if !ok {
+		log.Errorf("no cmd in json data: %v", ds)
+	}
+
+	if cmd == 0 || cmd == 16 {
+		err = gh.handleGateWayConfig(ds, cmd)
+	} else if cmd == 3 {
+		err = gh.handleDeviceData(ds)
+	} else {
+		err = fmt.Errorf("unknown cmd %f in json data: %v", cmd, ds)
+	}
+
 	if err != nil {
 		log.Errorf(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -92,7 +108,7 @@ func (gh *GatewayHandler) handleDeviceData(ds map[string]interface{}) error {
 
 	dev_id, ok := ds["dev_id"].(string)
 	if !ok {
-		return errors.New("no dev_id in json data")
+		return fmt.Errorf("no dev_id in json data: %v", ds)
 	}
 
 	ts := time.Now().Unix()
@@ -115,7 +131,7 @@ func (gh *GatewayHandler) handleDeviceData(ds map[string]interface{}) error {
 }
 
 func (gh *GatewayHandler) pollDevices() {
-	for dev_id, _ := range config.Devices {
+	for _, dev_id := range gh.gw_device_list {
 
 		ds, err := gh.gatewayRequest(fmt.Sprintf(query_device_status, gh.gw_id, dev_id))
 		if err != nil {
@@ -132,7 +148,7 @@ func (gh *GatewayHandler) pollDevices() {
 			continue
 		}
 
-		log.Infof("retrieved deviced status for  gw_id=%s, dev_id=%s", gh.gw_id, dev_id)
+		log.Infof("retrieved device status for gw_id=%s, dev_id=%s", gh.gw_id, dev_id)
 
 		err = gh.handleDeviceData(ds)
 		if err != nil {
@@ -177,6 +193,91 @@ func (gh *GatewayHandler) gatewayRequest(payload string) (map[string]interface{}
 	return res, nil
 }
 
+func (gh *GatewayHandler) getGatewayConfig() {
+
+	// set defauls - in case config API is not working
+	gh.gw_unit = "liter"
+	gh.gw_version = "unknown"
+	gh.gw_msg_count = 0
+	gh.gw_device_list = make([]string, 0, 2)
+
+	ds, err := gh.gatewayRequest(fmt.Sprintf(query_gw_config, gh.gw_id))
+	if err != nil {
+		log.Errorf("failed to get gateway config for gw_id=%s: %s", gh.gw_id, err.Error())
+		return
+	}
+
+	cmd, ok := ds["cmd"].(float64)
+	if !ok {
+		log.Errorf("no cmd in json data: %v", ds["cmd"], ds)
+	}
+
+	gh.handleGateWayConfig(ds, cmd)
+}
+
+func (gh *GatewayHandler) handleGateWayConfig(ds map[string]interface{}, cmd float64) error {
+
+	id, ok := ds["gw_id"].(string)
+	if !ok {
+		return fmt.Errorf("no gw_id in json data: %v", ds)
+	} else if id != gh.gw_id {
+		return fmt.Errorf("wrong gateway id in config, expected %s but received: %v", gh.gw_id, id)
+	}
+
+	log.Infof("retrieved gateway config for gw_id=%s: %v", gh.gw_id, ds)
+
+	gh.Lock()
+	defer gh.Unlock()
+
+	gh.gw_msg_count++
+
+	ver, ok := ds["ver"].(string)
+	if !ok {
+		log.Warnf("gateway version (ver) missing in config")
+	} else {
+		gh.gw_version = ver
+	}
+
+	if cmd == 16 {
+		unit, ok := ds["vol_unit"].(string)
+		if !ok {
+			log.Warnf("gateway volume unit (vol_unit) missing in config")
+		} else if unit == "gal" {
+			gh.gw_unit = "gallon"
+		} else if unit == "L" {
+			gh.gw_unit = "liter"
+		} else {
+			log.Warnf("gateway volume unit '%s' is unknown", unit)
+		}
+	}
+
+	devs, ok := ds["end_dev"].([]interface{})
+	if !ok {
+		log.Warnf("connected devices (end_dev: %v) missing in config", ds["end_dev"])
+	} else {
+		dev_list := make([]string, 0, len(devs))
+		for _, dev_id_untyped := range devs {
+			dev_id, ok := dev_id_untyped.(string)
+			if !ok {
+				log.Warnf("invalid device ID %v in config", dev_id_untyped)
+
+			} else {
+				dev_list = append(dev_list, dev_id)
+			}
+		}
+
+		if len(dev_list) > 0 {
+			gh.gw_device_list = dev_list
+			log.Infof("using device list retrieved from gateway config: %v", dev_list)
+		} else {
+			log.Warnf("failed to get any devices from device list: %s", devs)
+		}
+	}
+
+	log.Debugf("gateway handler: %v", gh)
+	return nil
+}
+
 func initGatewayHandler(gatewayURL string, addr string) *GatewayHandler {
 	gh := &GatewayHandler{gatewayURL: gatewayURL}
 	gh.devices = make(map[string]*DeviceStatus)
@@ -194,8 +295,8 @@ func initGatewayHandler(gatewayURL string, addr string) *GatewayHandler {
 	}
 	log.Infof("retrieved gateway Id: %s", gh.gw_id)
 
-	// TODO get unit used by gateway
-	gh.gw_unit = "liter"
+	// now try to get gateway config
+	gh.getGatewayConfig()
 
 	// gateway API is working, so request status of devices
 	go gh.pollDevices()

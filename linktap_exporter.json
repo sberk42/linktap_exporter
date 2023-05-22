@@ -1,7 +1,8 @@
 {
-	"devices": {
-		"xxxxxxxxx" : { "name": "TP-2BS" }
-	},
+	"device_labels": [
+		{ "label":"dev_type", "value_patterns" : [ { "value": "TP-2BS", "id_regex": ".*" } ] },
+		{ "label":"dev_name", "value_patterns" : [ { "value": "Terrace", "id_regex": ".*" } ] }
+	],
 	"metrics": [
 		{ "id":"plan_mode", "type":"gauge", "help":"current activated watering plan mode (0: no plan, 1: instant, 2: calendar, 3 - 7: day, 4: odd-even, 5: interval mode, 6: month)" },
 		{ "id":"plan_sn", "type":"gauge", "help":"serial number of the currently executed watering plan" },
