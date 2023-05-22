@@ -84,7 +84,8 @@ func (gh *GatewayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	cmd, ok := ds["cmd"].(float64)
 	if !ok {
-		log.Errorf("no cmd in json data: %v", ds)
+		// no cmd so we assume normal status msg
+		cmd = 3
 	}
 
 	if cmd == 0 || cmd == 16 {
